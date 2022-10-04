@@ -59,6 +59,10 @@ class UnsupportedError(BrainPyError):
   pass
 
 
+class NoImplementationError(BrainPyError):
+  pass
+
+
 class NoLongerSupportError(BrainPyError):
   pass
 
@@ -97,6 +101,22 @@ class JaxTracerError(MathError):
     else:
       raise ValueError
 
-    msg += 'While there are changed variables which are not wrapped into "dyn_vars". Please check!'
+    # msg += 'While there are changed variables which are not wrapped into "dyn_vars". Please check!'
+    msg = 'While there are changed variables which are not wrapped into "dyn_vars". Please check!'
 
     super(JaxTracerError, self).__init__(msg)
+
+
+class ConcretizationTypeError(Exception):
+  def __init__(self):
+    super(ConcretizationTypeError, self).__init__(
+      'This problem may be caused by several ways:\n'
+      '1. Your if-else conditional statement relies on instances of brainpy.math.Variable. \n'
+      '2. Your if-else conditional statement relies on functional arguments which do not '
+      'set in "static_argnames" when applying JIT compilation. More details please see '
+      'https://jax.readthedocs.io/en/latest/errors.html#jax.errors.ConcretizationTypeError\n'
+      '3. The static variables which set in the "static_argnames" are provided '
+      'as arguments, not keyword arguments, like "jit_f(v1, v2)" [<- wrong]. '
+      'Please write it as "jit_f(static_k1=v1, static_k2=v2)" [<- right].'
+    )
+

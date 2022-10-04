@@ -3,9 +3,29 @@
 import io
 import os
 import re
+import sys
 
 from setuptools import find_packages
 from setuptools import setup
+
+try:
+  # require users to uninstall previous brainpy releases.
+  import pkg_resources
+
+  installed_packages = pkg_resources.working_set
+  for i in installed_packages:
+    if i.key == 'brainpy-simulator':
+      raise SystemError('Please uninstall the older version of brainpy '
+                        f'package "brainpy-simulator={i.version}" '
+                        f'(located in {i.location}) first. \n'
+                        '>>> pip uninstall brainpy-simulator')
+    if i.key == 'brain-py':
+      raise SystemError('Please uninstall the older version of brainpy '
+                        f'package "brain-py={i.version}" '
+                        f'(located in {i.location}) first. \n'
+                        '>>> pip uninstall brain-py')
+except ModuleNotFoundError:
+  pass
 
 # version
 here = os.path.abspath(os.path.dirname(__file__))
@@ -17,40 +37,68 @@ version = re.search('__version__ = "(.*)"', init_py).groups()[0]
 with io.open(os.path.join(here, 'README.md'), 'r', encoding='utf-8') as f:
   README = f.read()
 
+# require users to install jaxlib before installing brainpy on Windows platform
+if sys.platform.startswith('win32') or sys.platform.startswith('cygwin'):
+  try:
+    import jaxlib
+  except ModuleNotFoundError:
+    raise ModuleNotFoundError('''
+    
+----------------------------------------------------------------------
+   We detect that your are using Windows platform. 
+   Please manually install "jaxlib" before installing "brainpy". 
+   See https://whls.blob.core.windows.net/unstable/index.html 
+   for jaxlib's Windows wheels.
+----------------------------------------------------------------------
+
+''') from None
+
+
+packages = find_packages()
+if 'docs' in packages:
+  packages.remove('docs')
+if 'tests' in packages:
+  packages.remove('tests')
+
 # setup
 setup(
-  name='brain-py',
+  name='brainpy',
   version=version,
   description='BrainPy: Brain Dynamics Programming in Python',
   long_description=README,
   long_description_content_type="text/markdown",
   author='BrainPy Team',
   author_email='chao.brain@qq.com',
-  packages=find_packages(),
-  python_requires='>=3.6',
+  packages=packages,
+  python_requires='>=3.7',
   install_requires=[
     'numpy>=1.15',
-    'matplotlib>=3.4',
-    'jax>=0.2.10',
+    'jax>=0.3.0',
+    'jaxlib>=0.3.0',
     'tqdm',
   ],
-  extras_require={
-    'cpu': ['jaxlib>=0.1.64', 'brainpylib>=0.02'],
-    'cuda': ['jaxlib>=0.1.64', 'brainpylib>=0.02'],
-  },
   url='https://github.com/PKU-NIP-Lab/BrainPy',
-  keywords='computational neuroscience, brain-inspired computation, '
-           'dynamical systems, differential equations, '
-           'brain modeling, brain dynamics programming',
+  project_urls={
+    "Bug Tracker": "https://github.com/PKU-NIP-Lab/BrainPy/issues",
+    "Documentation": "https://brainpy.readthedocs.io/",
+    "Source Code": "https://github.com/PKU-NIP-Lab/BrainPy",
+  },
+  keywords='computational neuroscience, '
+           'brain-inspired computation, '
+           'dynamical systems, '
+           'differential equations, '
+           'brain modeling, '
+           'brain dynamics modeling, '
+           'brain dynamics programming',
   classifiers=[
     'Natural Language :: English',
     'Operating System :: OS Independent',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
     'Intended Audience :: Science/Research',
     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
     'Topic :: Scientific/Engineering :: Bio-Informatics',

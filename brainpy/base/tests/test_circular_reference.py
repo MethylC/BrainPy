@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import brainpy as bp
 from pprint import pprint
 
+import brainpy as bp
 
-class HH(bp.NeuGroup):
+
+class HH(bp.dyn.NeuGroup):
   def __init__(self, size, ENa=55., EK=-90., EL=-65, C=1.0,
                gNa=35., gK=9., gL=0.1, V_th=20., phi=5.0, **kwargs):
     super(HH, self).__init__(size=size, **kwargs)
@@ -49,8 +50,8 @@ class HH(bp.NeuGroup):
 
     return dVdt, dhdt, dndt
 
-  def update(self, _t, _i):
-    V, h, n = self.integral(self.V, self.h, self.n, _t, self.inputs)
+  def update(self, t, dt):
+    V, h, n = self.integral(self.V, self.h, self.n, t, self.inputs)
     self.spikes[:] = bp.math.logical_and(self.V < self.V_th, V >= self.V_th)
     self.V[:] = V
     self.h[:] = h
@@ -64,7 +65,7 @@ def test_nodes():
   A.pre = B
   B.pre = A
 
-  net = bp.Network(A, B)
+  net = bp.dyn.Network(A, B)
   abs_nodes = net.nodes(method='absolute')
   rel_nodes = net.nodes(method='relative')
   print()
@@ -73,18 +74,3 @@ def test_nodes():
 
   assert len(abs_nodes) == 3
   assert len(rel_nodes) == 5
-
-
-def test_ints():
-  A = HH(1, name='X2')
-  B = HH(1, name='Y2')
-  A.pre = B
-  B.pre = A
-
-  net = bp.Network(A, B)
-  abs_ints = net.ints(method='absolute')
-  rel_ints = net.ints(method='relative')
-  print()
-  pprint(abs_ints.keys())
-  pprint(rel_ints.keys())
-

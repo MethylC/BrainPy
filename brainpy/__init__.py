@@ -1,6 +1,21 @@
 # -*- coding: utf-8 -*-
 
-__version__ = "2.0.2"
+__version__ = "2.2.3"
+
+
+try:
+  import jaxlib
+  del jaxlib
+except ModuleNotFoundError:
+  raise ModuleNotFoundError(
+    'Please install jaxlib. See '
+    'https://brainpy.readthedocs.io/en/latest/quickstart/installation.html#dependency-2-jax '
+    'for installation instructions.'
+  ) from None
+
+
+# fundamental modules
+from . import errors, tools, check, modes
 
 
 # "base" module
@@ -9,46 +24,80 @@ from .base.base import Base
 from .base.collector import Collector, TensorCollector
 
 
-# "math" module
+# math foundation
 from . import math
 
 
-# "integrators" module
+# toolboxes
+from . import (
+  connect,  # synaptic connection
+  initialize,  # weight initialization
+  optimizers,  # gradient descent optimizers
+  losses,  # loss functions
+  measure,  # methods for data analysis
+  datasets,  # methods for generating data
+  inputs,  # methods for generating input currents
+  algorithms,  # online or offline training algorithms
+)
+
+
+# numerical integrators
 from . import integrators
 from .integrators import ode
 from .integrators import sde
+from .integrators import fde
 from .integrators.ode import odeint
-from .integrators.ode import set_default_odeint
-from .integrators.ode import get_default_odeint
 from .integrators.sde import sdeint
-from .integrators.sde import set_default_sdeint
-from .integrators.sde import get_default_sdeint
+from .integrators.fde import fdeint
 from .integrators.joint_eq import JointEq
 
-# "building" module
-from .building.brainobjects import *
-from .building import inputs, models, brainobjects, connect
-conn = connect
 
-# "simulation" module
-from . import simulation
-from .simulation.monitor import *
-from .simulation.runner import *
-from .simulation import measure, parallel
+# dynamics simulation
+from . import dyn
+from .dyn import (
+  channels,  # channel models
+  layers,  # ANN layers
+  networks,  # network models
+  neurons,  # neuron groups
+  rates,  # rate models
+  synapses,  # synaptic dynamics
+  synouts,   # synaptic output
+  synplast,  # synaptic plasticity
+)
+from brainpy.dyn.base import (
+  DynamicalSystem,
+  Container,
+  Sequential,
+  Network,
+  NeuGroup,
+  SynConn,
+  SynOut,
+  SynSTP,
+  SynLTP,
+  TwoEndConn,
+  CondNeuGroup,
+  Channel,
+)
+from .dyn.runners import *
 
-# "training" module
-from . import training
-from .training import layers, initialize
-init = initialize
 
-# "analysis" module
+# dynamics training
+from . import train
+
+
+# automatic dynamics analysis
 from . import analysis
 
 
-# "visualization" module
-from . import visualization as visualize
+# running
+from . import running
 
 
-# other modules
-from . import errors
-from . import tools
+# "visualization" module, will be removed soon
+from .visualization import visualize
+
+
+# convenient access
+conn = connect
+init = initialize
+optim = optimizers

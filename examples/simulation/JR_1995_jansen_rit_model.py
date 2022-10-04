@@ -4,7 +4,7 @@ import brainpy as bp
 import brainpy.math as bm
 
 
-class JansenRitModel(bp.DynamicalSystem):
+class JansenRitModel(bp.dyn.DynamicalSystem):
   r"""The Jansen-Rit model, a neural mass model of the dynamic
     interactions between 3 populations:
 
@@ -100,9 +100,10 @@ class JansenRitModel(bp.DynamicalSystem):
   def dy5(self, y5, t, y0, y2):
     return (self.B * self.C4 * self.sigmoid(self.C3 * y0) - 2 * y5 - y2 / self.tau_i) / self.tau_i
 
-  def update(self, _t, _dt):
+  def update(self, tdi):
+    t, dt = tdi['t'], tdi['dt']
     self.y0.value, self.y1.value, self.y2.value, self.y3.value, self.y4.value, self.y5.value = \
-      self.integral(self.y0, self.y1, self.y2, self.y3, self.y4, self.y5, _t, p=self.p, dt=_dt)
+      self.integral(self.y0, self.y1, self.y2, self.y3, self.y4, self.y5, t, p=self.p, dt=dt)
 
 
 def simulation(duration=5.):
@@ -110,7 +111,7 @@ def simulation(duration=5.):
   # random input uniformly distributed between 120 and 320 pulses per second
   all_ps = bm.random.uniform(120, 320, size=(int(duration / dt), 1))
   jrm = JansenRitModel(num=6, C=bm.array([68., 128., 135., 270., 675., 1350.]))
-  runner = bp.StructRunner(jrm,
+  runner = bp.dyn.DSRunner(jrm,
                            monitors=['y0', 'y1', 'y2', 'y3', 'y4', 'y5'],
                            inputs=['p', all_ps, 'iter', '='],
                            dt=dt)
@@ -131,7 +132,7 @@ def simulation(duration=5.):
     fig.add_subplot(gs[i, 2])
     title = 'I' if i == 0 else None
     bp.visualize.line_plot(runner.mon.ts[start: end], runner.mon.y2[start: end, i],
-                           title=title, show=i==5, xlabel=xlabel)
+                           title=title, show=i == 5, xlabel=xlabel)
 
 
 if __name__ == '__main__':

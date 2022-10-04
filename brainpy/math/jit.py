@@ -13,14 +13,14 @@ import logging
 import jax
 
 try:
-  from jax.errors import UnexpectedTracerError
+  from jax.errors import UnexpectedTracerError, ConcretizationTypeError
 except ImportError:
   from jax.core import UnexpectedTracerError
 
 from brainpy import errors
 from brainpy.base.base import Base
 from brainpy.base.collector import TensorCollector
-from brainpy.math.jaxarray import JaxArray
+from brainpy.math.jaxarray import JaxArray, turn_on_global_jit, turn_off_global_jit
 from brainpy.tools.codes import change_func_name
 
 __all__ = [
@@ -30,10 +30,10 @@ __all__ = [
 logger = logging.getLogger('brainpy.math.jit')
 
 
-def _make_jit(func, vars, static_argnames=None, device=None, f_name=None):
+def _make_jit_with_vars(func, vars, static_argnames=None, device=None, f_name=None):
   @functools.partial(jax.jit, static_argnames=static_argnames, device=device)
   def jitted_func(variable_data, *args, **kwargs):
-    vars.assign(variable_data)
+    for key, v in vars.items(): v._value = variable_data[key]
     out = func(*args, **kwargs)
     changes = vars.dict()
     return out, changes
@@ -41,12 +41,35 @@ def _make_jit(func, vars, static_argnames=None, device=None, f_name=None):
   def call(*args, **kwargs):
     variable_data = vars.dict()
     try:
+      turn_on_global_jit()
       out, changes = jitted_func(variable_data, *args, **kwargs)
+      turn_off_global_jit()
     except UnexpectedTracerError as e:
-      vars.assign(variable_data)
+      turn_off_global_jit()
+      for key, v in vars.items(): v._value = variable_data[key]
       raise errors.JaxTracerError(variables=vars) from e
-    vars.assign(changes)
+    except ConcretizationTypeError as e:
+      turn_off_global_jit()
+      for key, v in vars.items(): v._value = variable_data[key]
+      raise errors.ConcretizationTypeError() from e
+    except Exception as e:
+      turn_off_global_jit()
+      for key, v in vars.items(): v._value = variable_data[key]
+      raise e
+    for key, v in vars.items(): v._value = changes[key]
     return out
+
+  return change_func_name(name=f_name, f=call) if f_name else call
+
+
+def _make_jit_without_vars(func, static_argnames=None, device=None, f_name=None):
+  jit_f = jax.jit(func, static_argnames=static_argnames, device=device)
+
+  def call(*args, **kwargs):
+    turn_on_global_jit()
+    r = jit_f(*args, **kwargs)
+    turn_off_global_jit()
+    return r
 
   return change_func_name(name=f_name, f=call) if f_name else call
 
@@ -162,48 +185,9 @@ def jit(func, dyn_vars=None, static_argnames=None, device=None, auto_infer=True)
 
   Returns
   -------
-  func : Any
-    A wrapped version of Base object or function, set up for just-in-time compilation.
+  func : callable
+    A callable jitted function, set up for just-in-time compilation.
   """
-  from brainpy.building.brainobjects import DynamicalSystem
-
-  if isinstance(func, DynamicalSystem):
-    if len(func.steps):  # DynamicalSystem has step functions
-
-      # dynamical variables
-      if dyn_vars is None:
-        if auto_infer:
-          dyn_vars = func.vars().unique()
-        else:
-          dyn_vars = TensorCollector()
-      if isinstance(dyn_vars, JaxArray):
-        dyn_vars = TensorCollector({'_': dyn_vars})
-      elif isinstance(dyn_vars, dict):
-        dyn_vars = TensorCollector(dyn_vars)
-      elif isinstance(dyn_vars, (tuple, list)):
-        dyn_vars = TensorCollector({f'_v{i}': v for i, v in enumerate(dyn_vars)})
-      else:
-        raise ValueError
-
-      # static arguments by name
-      if static_argnames is None:
-        static_argnames = {key: None for key in func.steps.keys()}
-      elif isinstance(static_argnames, str):
-        static_argnames = {key: (static_argnames,) for key in func.steps.keys()}
-      elif isinstance(static_argnames, (tuple, list)) and isinstance(static_argnames[0], str):
-        static_argnames = {key: static_argnames for key in func.steps.keys()}
-      assert isinstance(static_argnames, dict)
-
-      # jit functions
-      for key in list(func.steps.keys()):
-        jitted_func = _make_jit(vars=dyn_vars,
-                                func=func.steps[key],
-                                static_argnames=static_argnames[key],
-                                device=device,
-                                f_name=key)
-        func.steps.replace(key, jitted_func)
-      return func
-
   if callable(func):
     if dyn_vars is not None:
       if isinstance(dyn_vars, JaxArray):
@@ -226,15 +210,13 @@ def jit(func, dyn_vars=None, static_argnames=None, device=None, auto_infer=True)
         dyn_vars = TensorCollector()
 
     if len(dyn_vars) == 0:  # pure function
-      return jax.jit(func,
-                     static_argnames=static_argnames,
-                     device=device)
+      return _make_jit_without_vars(func, static_argnames=static_argnames, device=device)
 
     else:  # Base object which implements __call__, or bounded method of Base object
-      return _make_jit(vars=dyn_vars,
-                       func=func,
-                       static_argnames=static_argnames,
-                       device=device)
+      return _make_jit_with_vars(vars=dyn_vars,
+                                 func=func,
+                                 static_argnames=static_argnames,
+                                 device=device)
 
   else:
     raise errors.BrainPyError(f'Only support instance of {Base.__name__}, or a callable '

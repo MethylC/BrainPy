@@ -4,7 +4,7 @@
 import jax.lax
 import jax.numpy as jnp
 import numpy as np
-from jax import grad, jit
+from jax import grad, jit, vmap
 from jax.flatten_util import ravel_pytree
 
 import brainpy.math as bm
@@ -55,10 +55,13 @@ def _where(p, a, b):
 
 def jax_brentq(fun):
   f = f_without_jaxarray_return(fun)
-  if jax.config.read('jax_enable_x64'):
-    rtol = 4 * jnp.finfo(jnp.float64).eps
-  else:
-    rtol = 2 * jnp.finfo(jnp.float32).eps
+  assert jax.config.read('jax_enable_x64'), ('Brentq optimization need x64 support. '
+                                             'Please enable x64 with "brainpy.math.enable_x64()"')
+  rtol = 4 * jnp.finfo(jnp.float64).eps
+  # if jax.config.read('jax_enable_x64'):
+  #   rtol = 4 * jnp.finfo(jnp.float64).eps
+  # else:
+  #   rtol = 1.5 * jnp.finfo(jnp.float32).eps
 
   def x(a, b, args=(), xtol=2e-14, maxiter=200):
     # Convert to float
@@ -194,7 +197,7 @@ def brentq_candidates(vmap_f, *values, args=()):
 
 def brentq_roots(f, starts, ends, *vmap_args, args=()):
   in_axes = (0, 0, tuple([0] * len(vmap_args)) + tuple([None] * len(args)))
-  vmap_f_opt = bm.jit(bm.vmap(jax_brentq(f), in_axes=in_axes))
+  vmap_f_opt = bm.jit(vmap(jax_brentq(f), in_axes=in_axes))
   all_args = vmap_args + args
   if len(all_args):
     res = vmap_f_opt(starts, ends, all_args)
@@ -394,7 +397,7 @@ def roots_of_1d_by_x(f, candidates, args=()):
     return fps
   starts = candidates[candidate_ids]
   ends = candidates[candidate_ids + 1]
-  f_opt = bm.jit(bm.vmap(jax_brentq(f), in_axes=(0, 0, None)))
+  f_opt = bm.jit(vmap(jax_brentq(f), in_axes=(0, 0, None)))
   res = f_opt(starts, ends, args)
   valid_idx = jnp.where(res['status'] == ECONVERGED)[0]
   fps2 = res['root'][valid_idx]
@@ -403,7 +406,7 @@ def roots_of_1d_by_x(f, candidates, args=()):
 
 def roots_of_1d_by_xy(f, starts, ends, args):
   f = f_without_jaxarray_return(f)
-  f_opt = bm.jit(bm.vmap(jax_brentq(f)))
+  f_opt = bm.jit(vmap(jax_brentq(f)))
   res = f_opt(starts, ends, (args,))
   valid_idx = jnp.where(res['status'] == ECONVERGED)[0]
   xs = res['root'][valid_idx]
@@ -411,7 +414,7 @@ def roots_of_1d_by_xy(f, starts, ends, args):
   return xs, ys
 
 
-@tools.numba_jit
+# @tools.numba_jit
 def numpy_brentq(f, a, b, args=(), xtol=2e-14, maxiter=200, rtol=4 * np.finfo(float).eps):
   """
   Find a root of a function in a bracketing interval using Brent's method
@@ -538,7 +541,7 @@ def numpy_brentq(f, a, b, args=(), xtol=2e-14, maxiter=200, rtol=4 * np.finfo(fl
   return root, funcalls, itr
 
 
-@tools.numba_jit
+# @tools.numba_jit
 def find_root_of_1d_numpy(f, f_points, args=(), tol=1e-8):
   """Find the roots of the given function by numerical methods.
 

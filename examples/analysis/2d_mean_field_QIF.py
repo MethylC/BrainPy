@@ -3,7 +3,7 @@ import brainpy.math as bm
 bp.math.enable_x64()
 
 
-class MeanFieldQIF(bp.DynamicalSystem):
+class MeanFieldQIF(bp.dyn.DynamicalSystem):
   """A mean-field model of a quadratic integrate-and-fire neuron population.
 
   References
@@ -38,9 +38,10 @@ class MeanFieldQIF(bp.DynamicalSystem):
     self.int_r = bp.odeint(dr, method=method)
     self.int_v = bp.odeint(dv, method=method)
 
-  def update(self, _t, _dt):
-    self.r.value = self.int_r(self.r, _t, self.v, self.delta, _dt)
-    self.v.value = self.int_v(self.v, _t, self.r, self.Iext, self.eta, _dt)
+  def update(self, tdi):
+    t, dt = tdi['t'], tdi['dt']
+    self.r.value = self.int_r(self.r, t, self.v, self.delta, dt)
+    self.v.value = self.int_v(self.v, t, self.r, self.Iext, self.eta, dt)
     self.Iext[:] = 0.
 
 
@@ -48,7 +49,7 @@ qif = MeanFieldQIF()
 
 
 # simulation
-runner = bp.StructRunner(qif, inputs=['Iext', 1.], monitors=['r', 'v'])
+runner = bp.dyn.DSRunner(qif, inputs=['Iext', 1.], monitors=['r', 'v'])
 runner.run(100.)
 bp.visualize.line_plot(runner.mon.ts, runner.mon.r, legend='r')
 bp.visualize.line_plot(runner.mon.ts, runner.mon.v, legend='v', show=True)
@@ -71,7 +72,7 @@ bif = bp.analysis.Bifurcation2D(
   qif,
   target_vars={'r': [0., 4.], 'v': [-3., 3.]},
   target_pars={'Iext': [-1, 1.]},
-  resolutions=0.01
+  resolutions={'Iext': 0.01}
 )
 bif.plot_bifurcation()
 bif.show_figure()

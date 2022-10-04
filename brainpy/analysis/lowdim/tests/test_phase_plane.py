@@ -4,9 +4,12 @@ import unittest
 
 import brainpy as bp
 
+block = False
+
 
 class TestPhasePlane(unittest.TestCase):
   def test_1d(self):
+    import matplotlib.pyplot as plt
     bp.math.enable_x64()
 
     @bp.odeint
@@ -17,14 +20,19 @@ class TestPhasePlane(unittest.TestCase):
     analyzer = bp.analysis.PhasePlane1D(model=int_x,
                                         target_vars={'x': [-2, 2]},
                                         pars_update={'Iext': 0.},
-                                        resolutions=0.001)
+                                        resolutions=0.01)
 
+    plt.ion()
     analyzer.plot_vector_field()
-    analyzer.plot_fixed_point(show=True)
+    analyzer.plot_fixed_point()
+    plt.show(block=block)
+    plt.close()
+    bp.math.disable_x64()
 
   def test_2d_decision_making_model(self):
-    bp.math.enable_x64()
+    import matplotlib.pyplot as plt
 
+    bp.math.enable_x64()
     gamma = 0.641  # Saturation factor for gating variable
     tau = 0.06  # Synaptic time constant [sec]
     tau0 = 0.002  # Noise time constant [sec]
@@ -60,9 +68,12 @@ class TestPhasePlane(unittest.TestCase):
     analyzer = bp.analysis.PhasePlane2D(
       model=[int_s1, int_s2],
       target_vars={'s1': [0, 1], 's2': [0, 1]},
-      escape_sympy_solver=True,
-      resolutions=0.0005
+      resolutions=0.001
     )
+    plt.ion()
     analyzer.plot_vector_field()
     analyzer.plot_nullcline(coords=dict(s2='s2-s1'))
-    analyzer.plot_fixed_point(show=True)
+    analyzer.plot_fixed_point()
+    plt.show(block=block)
+    plt.close()
+    bp.math.disable_x64()

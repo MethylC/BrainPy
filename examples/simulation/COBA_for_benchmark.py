@@ -3,10 +3,10 @@
 import brainpy as bp
 import brainpy.math as bm
 
-bp.math.set_platform('gpu')
+bp.math.set_platform('cpu')
 
 
-class ExpCOBA(bp.TwoEndConn):
+class ExpCOBA(bp.dyn.TwoEndConn):
   def __init__(self, pre, post, conn, g_max=1., delay=0., tau=8.0, E=0.,
                method='exp_auto'):
     super(ExpCOBA, self).__init__(pre=pre, post=post, conn=conn)
@@ -26,13 +26,13 @@ class ExpCOBA(bp.TwoEndConn):
     # function
     self.integral = bp.odeint(lambda g, t: -g / self.tau, method=method)
 
-  def update(self, _t, _dt):
-    self.g.value = self.integral(self.g, _t, dt=_dt)
+  def update(self, tdi):
+    self.g.value = self.integral(self.g, tdi.t, tdi.dt)
     self.g += bm.pre2post_event_sum(self.pre.spike, self.pre2post, self.post.num, self.g_max)
     self.post.input += self.g * (self.E - self.post.V)
 
 
-class EINet(bp.Network):
+class EINet(bp.dyn.Network):
   def __init__(self, scale=1.0, method='exp_auto'):
     # network size
     num_exc = int(3200 * scale)
@@ -40,8 +40,8 @@ class EINet(bp.Network):
 
     # neurons
     pars = dict(V_rest=-60., V_th=-50., V_reset=-60., tau=20., tau_ref=5.)
-    E = bp.models.LIF(num_exc, **pars, method=method)
-    I = bp.models.LIF(num_inh, **pars, method=method)
+    E = bp.neurons.LIF(num_exc, **pars, method=method)
+    I = bp.neurons.LIF(num_inh, **pars, method=method)
     E.V[:] = bp.math.random.randn(num_exc) * 2 - 55.
     I.V[:] = bp.math.random.randn(num_inh) * 2 - 55.
 
@@ -58,7 +58,7 @@ class EINet(bp.Network):
 
 net = EINet(scale=10., method='euler')
 # simulation
-runner = bp.StructRunner(net,
+runner = bp.dyn.DSRunner(net,
                          # monitors=['E.spike'],
                          inputs=[('E.input', 20.), ('I.input', 20.)])
 t = runner.run(10000.)

@@ -1,16 +1,20 @@
 # -*- coding: utf-8 -*-
 
+import warnings
 from functools import partial
 
-import matplotlib.pyplot as plt
 import numpy as np
 from jax import numpy as jnp
+from jax import vmap
 from jax.scipy.optimize import minimize
 
 import brainpy.math as bm
 from brainpy import errors, tools
 from brainpy.analysis import constants as C, utils
+from brainpy.analysis.base import DSAnalyzer
 from brainpy.base.collector import Collector
+
+pyplot = None
 
 __all__ = [
   'LowDimAnalyzer',
@@ -19,7 +23,7 @@ __all__ = [
 ]
 
 
-class LowDimAnalyzer(object):
+class LowDimAnalyzer(DSAnalyzer):
   r"""Automatic Analyzer for Low-dimensional Dynamical Systems.
 
   A dynamical model is characterized by a series of dynamical
@@ -66,16 +70,18 @@ class LowDimAnalyzer(object):
     The optional setting. Maybe needed in the individual analyzer.
   """
 
-  def __init__(self,
-               model,
-               target_vars,
-               fixed_vars=None,
-               target_pars=None,
-               pars_update=None,
-               resolutions=None,
-               jit_device=None,
-               lim_scale=1.05,
-               options=None, ):
+  def __init__(
+      self,
+      model,
+      target_vars,
+      fixed_vars=None,
+      target_pars=None,
+      pars_update=None,
+      resolutions=None,
+      jit_device=None,
+      lim_scale=1.05,
+      options=None,
+  ):
     # model
     # -----
     self.model = utils.model_transform(model)
@@ -146,14 +152,20 @@ class LowDimAnalyzer(object):
     _target_vp = self.target_vars + self.target_pars
     if resolutions is None:
       for key, lim in self.target_vars.items():
-        self.resolutions[key] = bm.asarray(np.linspace(*lim, 20))
+        self.resolutions[key] = bm.linspace(*lim, 20)
       for key, lim in self.target_pars.items():
-        self.resolutions[key] = bm.asarray(np.linspace(*lim, 20))
+        self.resolutions[key] = bm.linspace(*lim, 20)
     elif isinstance(resolutions, float):
+      if len(self.target_pars) >= 1:
+        warnings.warn('The `resolutions` is specified to all parameters and variables. '
+                      'Analysis computation may occupy too much memory if `resolutions` is small. '
+                      'Please specify `resolutions` for each parameter and variable by dict, '
+                      'such as resolutions={"V": 0.1}.',
+                      category=UserWarning)
       for key, lim in self.target_vars.items():
-        self.resolutions[key] = bm.asarray(np.arange(*lim, resolutions))
+        self.resolutions[key] = bm.arange(*lim, resolutions)
       for key, lim in self.target_pars.items():
-        self.resolutions[key] = bm.asarray(np.arange(*lim, resolutions))
+        self.resolutions[key] = bm.arange(*lim, resolutions)
     elif isinstance(resolutions, dict):
       for key in resolutions.keys():
         if key in self.target_var_names:
@@ -161,15 +173,15 @@ class LowDimAnalyzer(object):
         if key in self.target_par_names:
           continue
         raise errors.AnalyzerError(f'The resolution setting target "{key}" is not found in '
-                                   f'the target variables {self.target_var_names} and '
+                                   f'the target variables {self.target_var_names} or '
                                    f'the target parameters {self.target_par_names}.')
       for key in self.target_var_names + self.target_par_names:
         if key not in resolutions:
-          self.resolutions[key] = bm.asarray(np.linspace(*_target_vp[key], 20))
+          self.resolutions[key] = bm.linspace(*_target_vp[key], 20)
         else:
           resolution = resolutions[key]
           if isinstance(resolution, float):
-            self.resolutions[key] = bm.asarray(np.arange(*_target_vp[key], resolution))
+            self.resolutions[key] = bm.arange(*_target_vp[key], resolution)
           elif isinstance(resolution, (bm.ndarray, np.ndarray, jnp.ndarray)):
             if not np.ndim(resolution) == 1:
               raise errors.AnalyzerError(f'resolution must be a 1D array, but get its '
@@ -204,10 +216,13 @@ class LowDimAnalyzer(object):
     # 'x_by_y_in_fy' :
     # 'y_by_x_in_fx' :
     # 'x_by_y_in_fx' :
-    self.analyzed_results = tools.DictPlus()
+    self.analyzed_results = tools.DotDict()
 
   def show_figure(self):
-    plt.show()
+    global pyplot
+    if pyplot is None:
+      from matplotlib import pyplot
+    pyplot.show()
 
 
 class Num1DAnalyzer(LowDimAnalyzer):
@@ -246,18 +261,19 @@ class Num1DAnalyzer(LowDimAnalyzer):
     >>> self.F_fx(v1, v2, p1, p2)
     """
     if C.F_fx not in self.analyzed_results:
-      _, arguments = utils.get_args(self.model.F[self.x_var])
+      _, arguments = utils.get_args(self.model.f_derivatives[self.x_var])
       wrapper = utils.std_derivative(arguments, self.target_var_names, self.target_par_names)
-      f = wrapper(self.model.F[self.x_var])
+      f = wrapper(self.model.f_derivatives[self.x_var])
       f = partial(f, **(self.pars_update + self.fixed_vars))
       f = utils.f_without_jaxarray_return(f)
+      f = utils.remove_return_shape(f)
       self.analyzed_results[C.F_fx] = bm.jit(f, device=self.jit_device)
     return self.analyzed_results[C.F_fx]
 
   @property
   def F_vmap_fx(self):
     if C.F_vmap_fx not in self.analyzed_results:
-      self.analyzed_results[C.F_vmap_fx] = bm.jit(bm.vmap(self.F_fx), device=self.jit_device)
+      self.analyzed_results[C.F_vmap_fx] = bm.jit(vmap(self.F_fx), device=self.jit_device)
     return self.analyzed_results[C.F_vmap_fx]
 
   @property
@@ -284,7 +300,7 @@ class Num1DAnalyzer(LowDimAnalyzer):
       # ---
       # "X": a two-dimensional matrix: (num_batch, num_var)
       # "args": a list of one-dimensional vectors, each has the shape of (num_batch,)
-      self.analyzed_results[C.F_vmap_fp_aux] = bm.jit(bm.vmap(self.F_fixed_point_aux))
+      self.analyzed_results[C.F_vmap_fp_aux] = bm.jit(vmap(self.F_fixed_point_aux))
     return self.analyzed_results[C.F_vmap_fp_aux]
 
   @property
@@ -303,7 +319,7 @@ class Num1DAnalyzer(LowDimAnalyzer):
       # ---
       # "X": a two-dimensional matrix: (num_batch, num_var)
       # "args": a list of one-dimensional vectors, each has the shape of (num_batch,)
-      self.analyzed_results[C.F_vmap_fp_opt] = bm.jit(bm.vmap(self.F_fixed_point_opt))
+      self.analyzed_results[C.F_vmap_fp_opt] = bm.jit(vmap(self.F_fixed_point_opt))
     return self.analyzed_results[C.F_vmap_fp_opt]
 
   def _get_fixed_points(self, candidates, *args, num_seg=None, tol_aux=1e-7, loss_screen=None):
@@ -406,29 +422,30 @@ class Num2DAnalyzer(Num1DAnalyzer):
     >>> self.F_fy(v1, v2, p1, p2)
     """
     if C.F_fy not in self.analyzed_results:
-      variables, arguments = utils.get_args(self.model.F[self.y_var])
+      variables, arguments = utils.get_args(self.model.f_derivatives[self.y_var])
       wrapper = utils.std_derivative(arguments, self.target_var_names, self.target_par_names)
-      f = wrapper(self.model.F[self.y_var])
+      f = wrapper(self.model.f_derivatives[self.y_var])
       f = partial(f, **(self.pars_update + self.fixed_vars))
       f = utils.f_without_jaxarray_return(f)
+      f = utils.remove_return_shape(f)
       self.analyzed_results[C.F_fy] = bm.jit(f, device=self.jit_device)
     return self.analyzed_results[C.F_fy]
 
   @property
   def F_int_x(self):
     if C.F_int_x not in self.analyzed_results:
-      wrap_x = utils.std_derivative(utils.get_args(self.model.F[self.x_var])[1],
+      wrap_x = utils.std_derivative(utils.get_args(self.model.f_derivatives[self.x_var])[1],
                                     self.target_var_names, self.target_par_names)
-      init_x = partial(wrap_x(self.model.INTG[0]), **(self.pars_update + self.fixed_vars))
+      init_x = partial(wrap_x(self.model.f_integrals[0]), **(self.pars_update + self.fixed_vars))
       self.analyzed_results[C.F_int_x] = init_x
     return self.analyzed_results[C.F_int_x]
 
   @property
   def F_int_y(self):
     if C.F_int_y not in self.analyzed_results:
-      wrap_x = utils.std_derivative(utils.get_args(self.model.F[self.y_var])[1],
+      wrap_x = utils.std_derivative(utils.get_args(self.model.f_derivatives[self.y_var])[1],
                                     self.target_var_names, self.target_par_names)
-      init_x = partial(wrap_x(self.model.INTG[1]), **(self.pars_update + self.fixed_vars))
+      init_x = partial(wrap_x(self.model.f_integrals[1]), **(self.pars_update + self.fixed_vars))
       self.analyzed_results[C.F_int_y] = init_x
     return self.analyzed_results[C.F_int_y]
 
@@ -495,7 +512,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
   @property
   def F_vmap_fy(self):
     if C.F_vmap_fy not in self.analyzed_results:
-      self.analyzed_results[C.F_vmap_fy] = bm.jit(bm.vmap(self.F_fy), device=self.jit_device)
+      self.analyzed_results[C.F_vmap_fy] = bm.jit(vmap(self.F_fy), device=self.jit_device)
     return self.analyzed_results[C.F_vmap_fy]
 
   @property
@@ -657,7 +674,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
       if self.F_x_by_y_in_fx is not None:
         utils.output("I am evaluating fx-nullcline by F_x_by_y_in_fx ...")
-        vmap_f = bm.jit(bm.vmap(self.F_x_by_y_in_fx), device=self.jit_device)
+        vmap_f = bm.jit(vmap(self.F_x_by_y_in_fx), device=self.jit_device)
         for j, pars in enumerate(par_seg):
           if len(par_seg.arg_id_segments[0]) > 1: utils.output(f"{C.prefix}segment {j} ...")
           mesh_values = jnp.meshgrid(*((ys,) + pars))
@@ -673,7 +690,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
       elif self.F_y_by_x_in_fx is not None:
         utils.output("I am evaluating fx-nullcline by F_y_by_x_in_fx ...")
-        vmap_f = bm.jit(bm.vmap(self.F_y_by_x_in_fx), device=self.jit_device)
+        vmap_f = bm.jit(vmap(self.F_y_by_x_in_fx), device=self.jit_device)
         for j, pars in enumerate(par_seg):
           if len(par_seg.arg_id_segments[0]) > 1: utils.output(f"{C.prefix}segment {j} ...")
           mesh_values = jnp.meshgrid(*((xs,) + pars))
@@ -691,9 +708,9 @@ class Num2DAnalyzer(Num1DAnalyzer):
         utils.output("I am evaluating fx-nullcline by optimization ...")
         # auxiliary functions
         f2 = lambda y, x, *pars: self.F_fx(x, y, *pars)
-        vmap_f2 = bm.jit(bm.vmap(f2), device=self.jit_device)
-        vmap_brentq_f2 = bm.jit(bm.vmap(utils.jax_brentq(f2)), device=self.jit_device)
-        vmap_brentq_f1 = bm.jit(bm.vmap(utils.jax_brentq(self.F_fx)), device=self.jit_device)
+        vmap_f2 = bm.jit(vmap(f2), device=self.jit_device)
+        vmap_brentq_f2 = bm.jit(vmap(utils.jax_brentq(f2)), device=self.jit_device)
+        vmap_brentq_f1 = bm.jit(vmap(utils.jax_brentq(self.F_fx)), device=self.jit_device)
 
         # num segments
         for _j, Ps in enumerate(par_seg):
@@ -750,7 +767,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
       if self.F_x_by_y_in_fy is not None:
         utils.output("I am evaluating fy-nullcline by F_x_by_y_in_fy ...")
-        vmap_f = bm.jit(bm.vmap(self.F_x_by_y_in_fy), device=self.jit_device)
+        vmap_f = bm.jit(vmap(self.F_x_by_y_in_fy), device=self.jit_device)
         for j, pars in enumerate(par_seg):
           if len(par_seg.arg_id_segments[0]) > 1: utils.output(f"{C.prefix}segment {j} ...")
           mesh_values = jnp.meshgrid(*((ys,) + pars))
@@ -766,7 +783,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
       elif self.F_y_by_x_in_fy is not None:
         utils.output("I am evaluating fy-nullcline by F_y_by_x_in_fy ...")
-        vmap_f = bm.jit(bm.vmap(self.F_y_by_x_in_fy), device=self.jit_device)
+        vmap_f = bm.jit(vmap(self.F_y_by_x_in_fy), device=self.jit_device)
         for j, pars in enumerate(par_seg):
           if len(par_seg.arg_id_segments[0]) > 1: utils.output(f"{C.prefix}segment {j} ...")
           mesh_values = jnp.meshgrid(*((xs,) + pars))
@@ -785,9 +802,9 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
         # auxiliary functions
         f2 = lambda y, x, *pars: self.F_fy(x, y, *pars)
-        vmap_f2 = bm.jit(bm.vmap(f2), device=self.jit_device)
-        vmap_brentq_f2 = bm.jit(bm.vmap(utils.jax_brentq(f2)), device=self.jit_device)
-        vmap_brentq_f1 = bm.jit(bm.vmap(utils.jax_brentq(self.F_fy)), device=self.jit_device)
+        vmap_f2 = bm.jit(vmap(f2), device=self.jit_device)
+        vmap_brentq_f2 = bm.jit(vmap(utils.jax_brentq(f2)), device=self.jit_device)
+        vmap_brentq_f1 = bm.jit(vmap(utils.jax_brentq(self.F_fy)), device=self.jit_device)
 
         for j, Ps in enumerate(par_seg):
           if len(par_seg.arg_id_segments[0]) > 1: utils.output(f"{C.prefix}segment {j} ...")
@@ -835,7 +852,7 @@ class Num2DAnalyzer(Num1DAnalyzer):
     xs = self.resolutions[self.x_var].value
     ys = self.resolutions[self.y_var].value
     P = tuple(self.resolutions[p].value for p in self.target_par_names)
-    f_select = bm.jit(bm.vmap(lambda vals, ids: vals[ids], in_axes=(1, 1)))
+    f_select = bm.jit(vmap(lambda vals, ids: vals[ids], in_axes=(1, 1)))
 
     # num seguments
     if isinstance(num_segments, int):
@@ -915,10 +932,10 @@ class Num2DAnalyzer(Num1DAnalyzer):
 
       if self.convert_type() == C.x_by_y:
         num_seg = len(self.resolutions[self.y_var])
-        f_vmap = bm.jit(bm.vmap(self.F_y_convert[1]))
+        f_vmap = bm.jit(vmap(self.F_y_convert[1]))
       else:
         num_seg = len(self.resolutions[self.x_var])
-        f_vmap = bm.jit(bm.vmap(self.F_x_convert[1]))
+        f_vmap = bm.jit(vmap(self.F_x_convert[1]))
       # get the signs
       signs = jnp.sign(f_vmap(candidates, *args))
       signs = signs.reshape((num_seg, -1))
@@ -948,10 +965,10 @@ class Num2DAnalyzer(Num1DAnalyzer):
       # get another value
       if self.convert_type() == C.x_by_y:
         y_values = fps
-        x_values = bm.jit(bm.vmap(self.F_y_convert[0]))(y_values, *args)
+        x_values = bm.jit(vmap(self.F_y_convert[0]))(y_values, *args)
       else:
         x_values = fps
-        y_values = bm.jit(bm.vmap(self.F_x_convert[0]))(x_values, *args)
+        y_values = bm.jit(vmap(self.F_x_convert[0]))(x_values, *args)
       fps = jnp.stack([x_values, y_values]).T
       return fps, selected_ids, args
 
@@ -1014,9 +1031,9 @@ class Num3DAnalyzer(Num2DAnalyzer):
   def F_fz(self):
     """The function to evaluate :math:`f_y(*\mathrm{vars}, *\mathrm{pars})`."""
     if C.F_fz not in self.analyzed_results:
-      variables, arguments = utils.get_args(self.model.F[self.z_var])
+      variables, arguments = utils.get_args(self.model.f_derivatives[self.z_var])
       wrapper = utils.std_derivative(arguments, self.target_var_names, self.target_par_names)
-      f = wrapper(self.model.F[self.z_var])
+      f = wrapper(self.model.f_derivatives[self.z_var])
       f = partial(f, **(self.pars_update + self.fixed_vars))
       self.analyzed_results[C.F_fz] = bm.jit(f, device=self.jit_device)
     return self.analyzed_results[C.F_fz]

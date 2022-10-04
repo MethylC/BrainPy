@@ -7,7 +7,7 @@ import brainpy as bp
 import brainpy.math as bm
 
 
-class CANN1D(bp.NeuGroup):
+class CANN1D(bp.dyn.NeuGroup):
   def __init__(self, num, tau=1., tau_v=50., k=1., a=0.3, A=0.2, J0=1.,
                z_min=-bm.pi, z_max=bm.pi, m=0.3):
     super(CANN1D, self).__init__(size=num)
@@ -53,13 +53,13 @@ class CANN1D(bp.NeuGroup):
   def get_stimulus_by_pos(self, pos):
     return self.A * bm.exp(-0.25 * bm.square(self.dist(self.x - pos) / self.a))
 
-  def update(self, _t, _dt):
+  def update(self, tdi):
     r1 = bm.square(self.u)
     r2 = 1.0 + self.k * bm.sum(r1)
     self.r.value = r1 / r2
     Irec = bm.dot(self.conn_mat, self.r)
-    self.u.value = self.u + (-self.u + Irec + self.input - self.v) / self.tau * _dt
-    self.v.value = self.v + (-self.v + self.m * self.u) / self.tau_v * _dt
+    self.u.value = self.u + (-self.u + Irec + self.input - self.v) / self.tau * tdi.dt
+    self.v.value = self.v + (-self.v + self.m * self.u) / self.tau_v * tdi.dt
     self.input[:] = 0.
 
 
@@ -76,7 +76,7 @@ position[num1: num1 + num2] = bm.linspace(0., final_pos, num2)
 position[num1 + num2:] = final_pos
 position = position.reshape((-1, 1))
 Iext = cann.get_stimulus_by_pos(position)
-runner = bp.StructRunner(cann,
+runner = bp.dyn.DSRunner(cann,
                          inputs=('input', Iext, 'iter'),
                          monitors=['u', 'v'],
                          dyn_vars=cann.vars())

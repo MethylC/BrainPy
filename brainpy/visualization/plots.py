@@ -17,6 +17,7 @@ __all__ = [
   'raster_plot',
   'animate_2D',
   'animate_1D',
+  'remove_axis',
 ]
 
 
@@ -82,7 +83,8 @@ def line_plot(ts,
   # plot
   if legend:
     for idx in plot_ids:
-      ax.plot(ts, val_matrix[:, idx], label=f'{legend}-{idx}', **kwargs)
+      label = legend if len(plot_ids) == 1 else f'{legend}-{idx}'
+      ax.plot(ts, val_matrix[:, idx], label=label, **kwargs)
   else:
     for idx in plot_ids:
       ax.plot(ts, val_matrix[:, idx], **kwargs)
@@ -503,3 +505,12 @@ def animate_1D(dynamical_vars,
     else:
       anim_result.save(save_path + '.mp4', writer='ffmpeg', fps=video_fps, bitrate=3000)
   return fig
+
+
+def remove_axis(ax, *pos):
+  for p in pos:
+    if p not in ['left', 'right', 'top', 'bottom']:
+      raise ValueError
+    ax.spine[p].set_visible(False)
+
+

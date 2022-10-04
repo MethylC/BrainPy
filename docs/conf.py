@@ -20,15 +20,26 @@ import brainpy
 
 from docs import auto_generater
 
-auto_generater.generate_base_docs('apis/auto/')
-auto_generater.generate_math_docs('apis/auto/math/')
-auto_generater.generate_integrators_doc('apis/auto/integrators/')
-auto_generater.generate_building_docs('apis/auto/building/')
-auto_generater.generate_simulation_docs('apis/auto/simulation/')
-auto_generater.generate_training_docs('apis/auto/training/')
-auto_generater.generate_analysis_docs('apis/auto/analysis/')
-auto_generater.generate_visualization_docs('apis/auto/')
-auto_generater.generate_tools_docs('apis/auto/')
+auto_generater.generate_base_docs()
+auto_generater.generate_analysis_docs()
+auto_generater.generate_train_docs()
+auto_generater.generate_algorithm_docs()
+auto_generater.generate_math_docs()
+auto_generater.generate_dyn_docs()
+auto_generater.generate_integrators_doc()
+auto_generater.generate_inputs_docs()
+auto_generater.generate_running_docs()
+auto_generater.generate_connect_docs()
+auto_generater.generate_initialize_docs()
+auto_generater.generate_losses_docs()
+auto_generater.generate_optimizers_docs()
+auto_generater.generate_measure_docs()
+auto_generater.generate_datasets_docs()
+auto_generater.generate_tools_docs()
+# auto_generater.generate_nn_docs()
+# auto_generater.generate_compact_docs()
+# auto_generater.generate_math_compact_docs()
+
 
 import shutil
 
@@ -43,7 +54,7 @@ for source, dest in changelogs:
 # -- Project information -----------------------------------------------------
 
 project = 'BrainPy'
-copyright = '2021, BrainPy'
+copyright = '2022, BrainPy'
 author = 'BrainPy Team'
 
 # The full version, including alpha/beta/rc tags
@@ -59,18 +70,17 @@ extensions = [
   'sphinx.ext.autosummary',
   'sphinx.ext.intersphinx',
   'sphinx.ext.mathjax',
+  'sphinx-mathjax-offline',
   'sphinx.ext.napoleon',
   'sphinx.ext.viewcode',
-  "sphinx_rtd_theme",
   'sphinx_autodoc_typehints',
   'myst_nb',
   'matplotlib.sphinxext.plot_directive',
+  'sphinx_thebe'
 ]
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
-
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -80,14 +90,60 @@ autosummary_generate = True
 # The master toctree document.
 master_doc = 'index'
 
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3.8", None),
+    "sphinx": ("https://www.sphinx-doc.org/en/master", None),
+}
+nitpick_ignore = [
+    ("py:class", "docutils.nodes.document"),
+    ("py:class", "docutils.parsers.rst.directives.body.Sidebar"),
+]
+
+suppress_warnings = ["myst.domains", "ref.ref"]
+
+numfig = True
+
+myst_enable_extensions = [
+    "dollarmath",
+    "amsmath",
+    "deflist",
+    # "html_admonition",
+    # "html_image",
+    "colon_fence",
+    # "smartquotes",
+    # "replacements",
+    # "linkify",
+    # "substitution",
+]
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_book_theme"
+html_logo = "_static/logo.png"
+html_title = "BrainPy documentation"
+html_copy_source = True
+html_sourcelink_suffix = ""
+html_favicon = "_static/logo-square.png"
+html_last_updated_fmt = ""
+
+# Add any paths that contain custom static files (such as style sheets) here,
+# relative to this directory. They are copied after the builtin static files,
+# so a file named "default.css" will overwrite the builtin "default.css".
+html_static_path = ["_static"]
+jupyter_execute_notebooks = "off"
+thebe_config = {
+    "repository_url": "https://github.com/binder-examples/jupyter-stacks-datascience",
+    "repository_branch": "master",
+}
+
+
+html_theme_options = {
+    'logo_only': True,
+    'show_toc_level': 2,
+}
 
 # -- Options for myst ----------------------------------------------
 # Notebook cell execution timeout; defaults to 30.
 execution_timeout = 200
-jupyter_execute_notebooks = "off"

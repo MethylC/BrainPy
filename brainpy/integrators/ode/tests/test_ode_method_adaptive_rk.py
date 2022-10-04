@@ -2,11 +2,12 @@
 
 import unittest
 
-import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.pyplot as plt
 
 import brainpy.math as bm
 from brainpy.integrators.ode import adaptive_rk
+
 
 sigma = 10
 beta = 8 / 3
@@ -23,9 +24,12 @@ def f_lorenz(x, y, z, t):
 
 
 def run_integrator(method, show=False, tol=0.001, adaptive=True):
+
   f_integral = method(f_lorenz, adaptive=adaptive, tol=tol, show_code=True)
-  x, y, z = bm.ones(1), bm.ones(1), bm.ones(1)
-  dt = bm.ones(1) * 0.01
+  x = bm.Variable(bm.ones(1))
+  y = bm.Variable(bm.ones(1))
+  z = bm.Variable(bm.ones(1))
+  dt = bm.Variable(bm.ones(1) * 0.01)
 
   def f(t):
     x.value, y.value, z.value, dt[:] = f_integral(x, y, z, t, dt=dt.value)
@@ -41,7 +45,7 @@ def run_integrator(method, show=False, tol=0.001, adaptive=True):
 
   if show:
     fig = plt.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(111, projection='3d')
     plt.plot(mon_x, mon_y, mon_z)
     ax.set_xlabel('x')
     ax.set_xlabel('y')
@@ -62,4 +66,4 @@ class TestAdaptiveRK(unittest.TestCase):
                    adaptive_rk.CashKarp,
                    adaptive_rk.BogackiShampine,
                    adaptive_rk.HeunEuler]:
-      run_integrator(method, show=True)
+      run_integrator(method, show=False)

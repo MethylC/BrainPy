@@ -1,10 +1,13 @@
 -r requirements.txt
 
-jaxlib>=0.1.64
-sympy>=1.6
-scipy>=1.1.0
 numba
-brainpylib
+matplotlib>=3.4
+jaxlib>=0.3.0
+scipy>=1.1.0
+brainpylib>=0.0.5
+h5py
+requests
+pillow
 
 # test requirements
 pytest

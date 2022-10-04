@@ -6,8 +6,8 @@ Installation
     :depth: 2
 
 
-``BrainPy`` is designed to run on across-platforms, including Windows,
-GNU/Linux and OSX. It only relies on Python libraries.
+``BrainPy`` is designed to run cross platforms, including Windows,
+GNU/Linux, and OSX. It only relies on Python libraries.
 
 
 Installation with pip
@@ -18,13 +18,13 @@ To do so, use:
 
 .. code-block:: bash
 
-    pip install brain-py
+    pip install brainpy
 
-If you try to update the BrainPy version, you can use
+To update the BrainPy version, you can use
 
 .. code-block:: bash
 
-    pip install -U brain-py
+    pip install -U brainpy
 
 
 If you want to install the pre-release version (the latest development version)
@@ -32,7 +32,15 @@ of BrainPy, you can use:
 
 .. code-block:: bash
 
-   pip install --pre brain-py
+   pip install --pre brainpy
+
+
+To install ``brainpylib`` (needed in dedicated operators), you can use:
+
+.. code-block:: bash
+
+    pip install brainpylib
+
 
 
 Installation from source
@@ -53,37 +61,40 @@ To do so, use:
     pip install git+https://git.openi.org.cn/OpenI/BrainPy
 
 
-Dependency 1: NumPy & Matplotlib
+Dependency 1: NumPy
 --------------------------------
 
 In order to make BrainPy work normally, users should install
 several dependent Python packages.
 
-The basic function of ``BrainPy`` only relies on `NumPy`_
-and `Matplotlib`_. Install these two packages is very
-easy, just using ``pip`` or ``conda``:
+The basic function of ``BrainPy`` only relies on `NumPy`_, which is very
+easy to install through ``pip`` or ``conda``:
 
 .. code-block:: bash
 
-    pip install numpy matplotlib
+    pip install numpy
 
     # or
 
-    conda install numpy matplotlib
+    conda install numpy
 
 Dependency 2: JAX
 -----------------
 
 BrainPy relies on `JAX`_. JAX is a high-performance JIT compiler which enables
-users run Python code on CPU, GPU, or TPU devices. Core functionalities of
-BrainPy (>=2.0.0) migrate to JAX backend.
+users to run Python code on CPU, GPU, and TPU devices. Core functionalities of
+BrainPy (>=2.0.0) have been migrated to the JAX backend.
 
 Linux & MacOS
 ^^^^^^^^^^^^^
 
 Currently, JAX supports **Linux** (Ubuntu 16.04 or later) and **macOS** (10.12 or
 later) platforms. The provided binary releases of JAX for Linux and macOS
-systems are available at https://storage.googleapis.com/jax-releases/jax_releases.html .
+systems are available at
+
+- for CPU: https://storage.googleapis.com/jax-releases/jax_releases.html
+- for GPU: https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+
 
 To install a CPU-only version of JAX, you can run
 
@@ -96,40 +107,59 @@ If you want to install JAX with both CPU and NVidia GPU support, you must first 
 
 .. code-block:: bash
 
-    pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_releases.html
+    pip install --upgrade "jax[cuda]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
 
 Alternatively, you can download the preferred release ".whl" file for jaxlib, and install it via ``pip``:
 
 .. code-block:: bash
 
-    pip install xxxx.whl
+    pip install xxx-0.3.14-xxx.whl
 
-    pip install jax
+    pip install jax==0.3.14
+
+Note that the versions of `jaxlib` and `jax` should be consistent.
+
 
 Windows
 ^^^^^^^
 
 For **Windows** users, JAX can be installed by the following methods:
 
-*Method 1*: For Windows 10+ system, you can use `Windows Subsystem for Linux (WSL)`_.
-The installation guide can be found in `WSL Installation Guide for Windows 10`_.
-Then, you can install JAX in WSL just like the installation step in Linux/MacOs.
+- **Method 1**: There are several communities support JAX for Windows, please refer
+  to the github link for more details: https://github.com/cloudhan/jax-windows-builder .
+  Simply speaking, the provided binary releases of JAX for Windows
+  are available at https://whls.blob.core.windows.net/unstable/index.html .
 
-*Method 2*: There are several community supported Windows build for jax, please refer
-to the github link for more details: https://github.com/cloudhan/jax-windows-builder .
-Simply speaking, the provided binary releases of JAX for Windows
-are available at https://whls.blob.core.windows.net/unstable/index.html .
-
-You can download the preferred release ".whl" file, and install it via ``pip``:
+  You can download the preferred release ".whl" file, and install it via ``pip``:
 
 .. code-block:: bash
 
-    pip install xxxx.whl
+    pip install xxx-0.3.14-xxx.whl
 
-    pip install jax
+    pip install jax==0.3.14
+
+- **Method 2**: For Windows 10+ system, you can use `Windows Subsystem for Linux (WSL)`_.
+  The installation guide can be found in `WSL Installation Guide for Windows 10`_.
+  Then, you can install JAX in WSL just like the installation step in Linux/MacOs.
 
 
-*Method 3*: You can also `build JAX from source`_.
+- **Method 3**: You can also `build JAX from source`_.
+
+
+
+Dependency 3: brainpylib
+------------------------
+
+Many customized operators in BrainPy are implemented in ``brainpylib``.
+``brainpylib`` can also be installed through `pypi <https://pypi.org/project/brainpylib/>`_.
+
+.. code-block:: bash
+
+   pip install brainpylib
+
+For GPU operators, you should compile ``brainpylib`` from source.
+The details please see
+`Compile GPU operators in brainpylib <../tutorial_advanced/compile_brainpylib.html>`_.
 
 
 Other Dependency
@@ -137,17 +167,6 @@ Other Dependency
 
 In order to get full supports of BrainPy, we recommend you install the following
 packages:
-
-- `SymPy`_: needed in one of Exponential Euler methods
-
-.. code-block:: bash
-
-    pip install sympy
-
-    # or
-
-    conda install sympy
-
 
 - `Numba`_: needed in some NumPy-based computations
 
@@ -158,6 +177,18 @@ packages:
     # or
 
     conda install numba
+
+
+- `matplotlib`_: required in some visualization functions, but now it is recommended that users explicitly import matplotlib for visualization
+
+.. code-block:: bash
+
+    pip install matplotlib
+
+    # or
+
+    conda install matplotlib
+
 
 .. _NumPy: https://numpy.org/
 .. _Matplotlib: https://matplotlib.org/

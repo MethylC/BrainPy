@@ -7,7 +7,10 @@ import pytest
 
 import brainpy as bp
 from brainpy.integrators import sde
+import matplotlib.pyplot as plt
 
+
+block = False
 sigma = 10
 beta = 8 / 3
 rho = 28
@@ -32,27 +35,28 @@ def lorenz_system(method, **kwargs):
                                 dt=0.005,
                                 **kwargs))
 
-  times = np.arange(0, 100, 0.01)
+  times = np.arange(0, 10, 0.01)
   mon1 = []
   mon2 = []
   mon3 = []
   x, y, z = 1, 1, 1
   for t in times:
     x, y, z = integral(x, y, z, t)
-    mon1.append(x.value)
-    mon2.append(y.value)
-    mon3.append(z.value)
-  mon1 = bp.math.array(mon1)
-  mon2 = bp.math.array(mon2)
-  mon3 = bp.math.array(mon3)
+    mon1.append(x)
+    mon2.append(y)
+    mon3.append(z)
+  mon1 = bp.math.array(mon1).to_numpy()
+  mon2 = bp.math.array(mon2).to_numpy()
+  mon3 = bp.math.array(mon3).to_numpy()
 
-  # fig = plt.figure()
-  # ax = fig.gca(projection='3d')
-  # plt.plot(mon1, mon2, mon3)
-  # ax.set_xlabel('x')
-  # ax.set_xlabel('y')
-  # ax.set_xlabel('z')
-  # plt.show()
+  fig = plt.figure()
+  ax = fig.add_subplot(111, projection='3d')
+  plt.plot(mon1, mon2, mon3)
+  ax.set_xlabel('x')
+  ax.set_xlabel('y')
+  ax.set_xlabel('z')
+  plt.show(block=block)
+  plt.close(fig)
 
 
 class TestScalarWienerIntegral(unittest.TestCase):
@@ -71,5 +75,5 @@ class TestScalarWienerIntegral(unittest.TestCase):
     lorenz_system(sde.Euler, intg_type=bp.integrators.STRA_SDE)
 
   def test_milstein(self):
-    lorenz_system(sde.Milstein, intg_type=bp.integrators.ITO_SDE)
-    lorenz_system(sde.Milstein, intg_type=bp.integrators.STRA_SDE)
+    lorenz_system(sde.MilsteinGradFree, intg_type=bp.integrators.ITO_SDE)
+    lorenz_system(sde.MilsteinGradFree, intg_type=bp.integrators.STRA_SDE)

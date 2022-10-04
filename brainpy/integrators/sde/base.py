@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import abc
+from typing import Dict, Callable, Union, Sequence
 
-from brainpy import math, errors
+from brainpy import math as bm, errors
 from brainpy.integrators import constants, utils
 from brainpy.integrators.base import Integrator
 
@@ -21,21 +21,40 @@ def f_names(f):
 class SDEIntegrator(Integrator):
   """SDE Integrator."""
 
-  def __init__(self, f, g, dt=None, name=None, show_code=False,
-               var_type=None, intg_type=None, wiener_type=None):
-    super(SDEIntegrator, self).__init__(name=name)
+  def __init__(
+      self,
+      f: Callable,
+      g: Callable,
+      dt: float = None,
+      name: str = None,
+      show_code: bool = False,
+      var_type: str = None,
+      intg_type: str = None,
+      wiener_type: str = None,
+      state_delays: Dict[str, bm.AbstractDelay] = None,
+      dyn_vars: Union[bm.Variable, Sequence[bm.Variable], Dict[str, bm.Variable]] = None,
+  ):
+    self.dyn_vars = dyn_vars
+    dt = bm.get_dt() if dt is None else dt
+    parses = utils.get_args(f)
+    variables = parses[0]  # variable names, (before 't')
+    parameters = parses[1]  # parameter names, (after 't')
+    arguments = parses[2]  # function arguments
+
+    # super initialization
+    super(SDEIntegrator, self).__init__(name=name,
+                                        variables=variables,
+                                        parameters=parameters,
+                                        arguments=arguments,
+                                        dt=dt,
+                                        state_delays=state_delays)
 
     # derivative functions
     self.derivative = {constants.F: f, constants.G: g}
     self.f = f
     self.g = g
 
-    # integration function
-    self.integral = None
-
     # essential parameters
-    self.dt = math.get_dt() if dt is None else dt
-    assert isinstance(self.dt, (int, float)), f'"dt" must be a float, but got {self.dt}'
     intg_type = constants.ITO_SDE if intg_type is None else intg_type
     var_type = constants.SCALAR_VAR if var_type is None else var_type
     wiener_type = constants.SCALAR_WIENER if wiener_type is None else wiener_type
@@ -51,31 +70,19 @@ class SDEIntegrator(Integrator):
                                    f'But we got {wiener_type}.')
     self.var_type = var_type  # variable type
     self.intg_type = intg_type  # integral type
-    self.wiener_type = wiener_type # wiener process type
-
-    # parse function arguments
-    variables, parameters, arguments = utils.get_args(f)
-    self.variables = variables  # variable names, (before 't')
-    self.parameters = parameters  # parameter names, (after 't')
-    self.arguments = list(arguments) + [f'{constants.DT}={self.dt}']  # function arguments
+    self.wiener_type = wiener_type  # wiener process type
 
     # random seed
-    self.rng = math.random.RandomState()
+    self.rng = bm.random.RandomState()
 
     # code scope
-    self.code_scope = {constants.F: f, constants.G: g, 'math': math, 'random': self.rng}
-
+    self.code_scope = {constants.F: f, constants.G: g, 'math': bm, 'random': self.rng}
     # code lines
     self.func_name = f_names(f)
     self.code_lines = [f'def {self.func_name}({", ".join(self.arguments)}):']
-
     # others
     self.show_code = show_code
 
-  @abc.abstractmethod
-  def build(self):
-    raise NotImplementedError('Must implement how to build your step function.')
-
-  def __call__(self, *args, **kwargs):
-    assert self.integral is not None, 'Please build the integrator first.'
-    return self.integral(*args, **kwargs)
+  def _check_vector_wiener_dim(self, noise_size, var_size):
+    if noise_size[:-1] > var_size[-len(noise_size) +1:]:
+      raise ValueError(f"Incompatible shapes for shapes of noise {noise_size} and variable {var_size}")

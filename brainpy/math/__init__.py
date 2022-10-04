@@ -9,11 +9,12 @@ This module provides basic mathematical operations, including:
 - linear algebra functions
 - random sampling functions
 - discrete fourier transform functions
-- compilations of ``jit``, ``vmap``, ``pmap`` for class objects
-- automatic differentiation of ``grad``, ``jacocian``, ``hessian``, etc. for class objects
-- loss functions
+- just-in-time compilation for class objects
+- automatic differentiation for class objects
+- dedicated operators for brain dynamics
 - activation functions
-- optimization classes
+- device/dtype switching
+- and others
 
 Details in the following.
 """
@@ -31,28 +32,28 @@ Details in the following.
 
 # data structure
 from .jaxarray import *
+from .delayvars import *
 
-# functions/operations
-from .numpy_ops import *
-from .operators import *
+# functions
 from .activations import *
+from . import activations
+
+# high-level numpy operations
+from .numpy_ops import *
+from .index_tricks import *
 from . import fft
 from . import linalg
 from . import random
-from . import losses
-from . import optimizers
-from . import activations
 
-# transformations
+# operators
+from .operators import *
+
+# JAX transformations extended on Variable and class objects
 from .autograd import *
 from .controls import *
 from .jit import *
-from .parallels import *
 
-# others
-from . import profile
+# settings
 from . import setting
-from .profile import *
 from .setting import *
 from .function import *
-from . import numpy

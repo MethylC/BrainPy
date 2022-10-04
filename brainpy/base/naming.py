@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from brainpy import errors
-
 import logging
 
-logger = logging.getLogger('brainpy.base.naming')
+from brainpy import errors
 
+logger = logging.getLogger('brainpy.base.naming')
 
 __all__ = [
   'check_name_uniqueness',
@@ -25,8 +24,13 @@ def check_name_uniqueness(name, obj):
                               f'Please choose another name.')
   if name in _name2id:
     if _name2id[name] != id(obj):
-      raise errors.UniqueNameError(f'In BrainPy, each object should have a unique name. '
-                                   f'However, we detect that {obj} has a used name "{name}".')
+      raise errors.UniqueNameError(
+        f'In BrainPy, each object should have a unique name. '
+        f'However, we detect that {obj} has a used name "{name}". \n'
+        f'If you try to run multiple trials, you may need \n\n'
+        f'>>> brainpy.base.clear_name_cache() \n\n'
+        f'to clear all cached names. '
+      )
   else:
     _name2id[name] = id(obj)
 
@@ -40,8 +44,9 @@ def get_unique_name(type_):
   return name
 
 
-def clear_name_cache():
+def clear_name_cache(ignore_warn=False):
   """Clear the cached names."""
   _name2id.clear()
   _typed_names.clear()
-  logger.warning(f'All named models and their ids are cleared.')
+  if not ignore_warn:
+    logger.warning(f'All named models and their ids are cleared.')
